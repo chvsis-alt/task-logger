@@ -1,7 +1,7 @@
 {
   "name": "task-logger",
   "version": "1.0.0",
-  "description": "Task Hour Logger - Cloud Deployment",
+  "description": "Task Hour Logger",
   "main": "server.js",
   "engines": {
     "node": ">=18.0.0"
