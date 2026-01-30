@@ -420,6 +420,12 @@
             border: 1px solid rgba(255, 140, 0, 0.3);
         }
 
+        .badge.oscar {
+            background: rgba(138, 43, 226, 0.1);
+            color: #8a2be2;
+            border: 1px solid rgba(138, 43, 226, 0.3);
+        }
+
         .badge.yet-to-start {
             background: rgba(108, 117, 125, 0.1);
             color: #6c757d;
@@ -602,6 +608,7 @@
                             <option value="Phycon">Phycon</option>
                             <option value="ROH">ROH</option>
                             <option value="Demo">Demo</option>
+                            <option value="Oscar Lite">Oscar Lite</option>
                             <option value="Others">Others</option>
                             <option value="Scrum">Scrum</option>
                         </select>
@@ -614,6 +621,7 @@
                             <option value="Build">Build</option>
                             <option value="Imp">Imp</option>
                             <option value="Adhoc">Adhoc</option>
+                            <option value="Oscar Lite">Oscar Lite</option>
                         </select>
                     </div>
 
@@ -705,6 +713,7 @@
                                     <option value="Phycon">Phycon</option>
                                     <option value="ROH">ROH</option>
                                     <option value="Demo">Demo</option>
+                                    <option value="Oscar Lite">Oscar Lite</option>
                                     <option value="Others">Others</option>
                                     <option value="Scrum">Scrum</option>
                                 </select>
@@ -718,6 +727,7 @@
                                     <option value="Build">Build</option>
                                     <option value="Imp">Imp</option>
                                     <option value="Adhoc">Adhoc</option>
+                                    <option value="Oscar Lite">Oscar Lite</option>
                                 </select>
                             </div>
                         </th>
@@ -1170,7 +1180,7 @@
                 <tr data-id="${task.id}">
                     <td>${task.task}</td>
                     <td>${task.client}</td>
-                    <td><span class="badge ${task.team.toLowerCase()}">${task.team}</span></td>
+                    <td><span class="badge ${task.team.toLowerCase().replace(' ', '-').replace('oscar-lite', 'oscar')}">${task.team}</span></td>
                     <td>${task.user}</td>
                     <td><span class="time-display">${formatTime(task.hours, task.minutes)}</span></td>
                     <td>${formatDate(task.start_date)}</td>
