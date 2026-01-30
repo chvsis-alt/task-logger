@@ -193,21 +193,29 @@ app.get('/api/tasks/:id', requireAuth, async (req, res) => {
 app.post('/api/tasks', requireAuth, async (req, res) => {
     const { task, client, team, user, hours, minutes, start_date, end_date, status } = req.body;
     
-    console.log('📝 CREATE task request:');
-    console.log('  User:', req.user.username);
-    console.log('  Task:', task);
-    console.log('  Client:', client);
-    console.log('  Team:', team);
-    console.log('  Assigned to:', user);
-    console.log('  Hours:', hours, 'Minutes:', minutes);
-    console.log('  Dates:', start_date, 'to', end_date);
-    console.log('  Status:', status);
+    console.log('='.repeat(80));
+    console.log('📝 CREATE TASK REQUEST RECEIVED');
+    console.log('='.repeat(80));
+    console.log('Authenticated user:', req.user.username);
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    console.log('='.repeat(80));
     
     // Validation
     if (!task || !client || !team || !user || 
         hours === undefined || minutes === undefined || 
         !start_date || !end_date || !status) {
-        console.log('❌ Validation failed - missing fields');
+        console.log('❌ VALIDATION FAILED');
+        console.log('Missing fields:', {
+            task: !task,
+            client: !client,
+            team: !team,
+            user: !user,
+            hours: hours === undefined,
+            minutes: minutes === undefined,
+            start_date: !start_date,
+            end_date: !end_date,
+            status: !status
+        });
         return res.status(400).json({ error: 'All fields are required' });
     }
 
@@ -222,12 +230,17 @@ app.post('/api/tasks', requireAuth, async (req, res) => {
                        parseInt(hours), parseInt(minutes), 
                        start_date, end_date, status];
         
+        console.log('Executing SQL with values:', values);
+        
         const result = await pool.query(sql, values);
         const newTask = result.rows[0];
         
-        console.log('✅ Task created successfully!');
-        console.log('  ID:', newTask.id);
-        console.log('  Created at:', newTask.created_at);
+        console.log('='.repeat(80));
+        console.log('✅ TASK CREATED SUCCESSFULLY!');
+        console.log('='.repeat(80));
+        console.log('New task ID:', newTask.id);
+        console.log('Created at:', newTask.created_at);
+        console.log('='.repeat(80));
         
         // Verify count
         const countResult = await pool.query('SELECT COUNT(*) as count FROM tasks');
@@ -239,15 +252,24 @@ app.post('/api/tasks', requireAuth, async (req, res) => {
         });
         
     } catch (error) {
-        console.error('='.repeat(80));
-        console.error('❌ INSERT ERROR:');
-        console.error('='.repeat(80));
-        console.error('Message:', error.message);
-        console.error('Code:', error.code);
-        if (error.detail) console.error('Detail:', error.detail);
-        if (error.hint) console.error('Hint:', error.hint);
-        console.error('='.repeat(80));
-        res.status(500).json({ error: error.message });
+        console.log('='.repeat(80));
+        console.log('❌ DATABASE INSERT ERROR');
+        console.log('='.repeat(80));
+        console.log('Error message:', error.message);
+        console.log('Error code:', error.code);
+        console.log('Error name:', error.name);
+        if (error.detail) console.log('Error detail:', error.detail);
+        if (error.hint) console.log('Error hint:', error.hint);
+        if (error.position) console.log('Error position:', error.position);
+        console.log('Full error:', error);
+        console.log('='.repeat(80));
+        
+        // Send detailed error to client for debugging
+        res.status(500).json({ 
+            error: 'Database error: ' + error.message,
+            code: error.code,
+            detail: error.detail
+        });
     }
 });
 
