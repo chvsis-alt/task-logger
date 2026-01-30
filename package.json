@@ -1,24 +1,19 @@
 {
-  "name": "task-logger-app",
+  "name": "task-logger",
   "version": "1.0.0",
-  "description": "Task Hour Logger Application with Database",
+  "description": "Task Hour Logger - Cloud Deployment",
   "main": "server.js",
-  "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+  "engines": {
+    "node": ">=18.0.0"
   },
-  "keywords": ["task", "logger", "time-tracking"],
-  "author": "",
-  "license": "ISC",
+  "scripts": {
+    "start": "node server.js"
+  },
   "dependencies": {
     "express": "^4.18.2",
-    "sqlite3": "^5.1.6",
     "pg": "^8.11.3",
     "body-parser": "^1.20.2",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.1"
   }
 }

@@ -1,22 +1,4 @@
-# Dependencies
 node_modules/
-
-# Logs
-logs
-*.log
-npm-debug.log*
-
-# Environment variables
 .env
-.env.local
-
-# OS files
+*.log
 .DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-
-# NOTE: Database files are NOT ignored
-# tasklogger.db is kept so data persists across deployments
