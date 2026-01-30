@@ -1,1 +1,1252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Hour Logger</title>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #f8f9fa;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f1f3f5;
+            --accent-primary: #0066cc;
+            --accent-secondary: #6610f2;
+            --accent-gradient: linear-gradient(135deg, #0066cc 0%, #6610f2 100%);
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+            --border-color: #dee2e6;
+            --success: #28a745;
+            --warning: #ffc107;
+            --error: #dc3545;
+            --shadow: rgba(0, 0, 0, 0.1);
+        }
 
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Archivo', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 3rem;
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .welcome-text {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+
+        .welcome-text strong {
+            color: var(--accent-primary);
+        }
+
+        .btn-logout {
+            background: transparent;
+            border: 2px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-logout:hover {
+            background: var(--error);
+            border-color: var(--error);
+            color: white;
+            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+        }
+
+        .btn-logout svg {
+            stroke: currentColor;
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            font-weight: 300;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .form-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 2px 8px var(--shadow);
+        }
+
+        .form-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--accent-gradient);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        @media (max-width: 1200px) {
+            .form-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            margin-bottom: 0.35rem;
+        }
+
+        select, input {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-family: 'Archivo', sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.1);
+        }
+
+        select {
+            cursor: pointer;
+        }
+
+        .time-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+        }
+
+        .time-inputs input {
+            text-align: center;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        button {
+            background: var(--accent-gradient);
+            border: none;
+            border-radius: 6px;
+            padding: 0.75rem 1.5rem;
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px var(--shadow);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .table-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px var(--shadow);
+        }
+
+        .filter-section {
+            background: var(--bg-tertiary);
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .filter-info {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-primary);
+            border-color: var(--accent-primary);
+        }
+
+        .btn-export {
+            background: var(--success);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+        }
+
+        .btn-export:hover {
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+
+        .results-count {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+        }
+
+        .results-count strong {
+            color: var(--accent-primary);
+        }
+
+        /* Column filter styles */
+        .column-filter {
+            margin-top: 0.5rem;
+        }
+
+        .column-filter input,
+        .column-filter select {
+            width: 100%;
+            padding: 0.4rem;
+            font-size: 0.8rem;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-primary);
+        }
+
+        .column-filter input::placeholder {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+        }
+
+        .column-filter input:focus,
+        .column-filter select:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 2px rgba(0, 217, 255, 0.1);
+        }
+
+        thead th {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: top;
+        }
+
+        .filter-active {
+            color: var(--accent-primary) !important;
+        }
+
+        .clear-filter-icon {
+            cursor: pointer;
+            display: inline-block;
+            margin-left: 0.25rem;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+
+        .clear-filter-icon:hover {
+            opacity: 1;
+            color: var(--error);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: var(--bg-tertiary);
+        }
+
+        thead th {
+            padding: 1rem 1rem;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        tbody tr {
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.2s ease;
+        }
+
+        tbody tr:hover {
+            background: var(--bg-tertiary);
+        }
+
+        tbody td {
+            padding: 1rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .badge.build {
+            background: rgba(0, 102, 204, 0.1);
+            color: #0066cc;
+            border: 1px solid rgba(0, 102, 204, 0.3);
+        }
+
+        .badge.imp {
+            background: rgba(102, 16, 242, 0.1);
+            color: #6610f2;
+            border: 1px solid rgba(102, 16, 242, 0.3);
+        }
+
+        .badge.adhoc {
+            background: rgba(255, 140, 0, 0.1);
+            color: #ff8c00;
+            border: 1px solid rgba(255, 140, 0, 0.3);
+        }
+
+        .badge.yet-to-start {
+            background: rgba(108, 117, 125, 0.1);
+            color: #6c757d;
+            border: 1px solid rgba(108, 117, 125, 0.3);
+        }
+
+        .badge.inprogress {
+            background: rgba(255, 193, 7, 0.1);
+            color: #e67e00;
+            border: 1px solid rgba(255, 193, 7, 0.3);
+        }
+
+        .badge.completed {
+            background: rgba(40, 167, 69, 0.1);
+            color: #28a745;
+            border: 1px solid rgba(40, 167, 69, 0.3);
+        }
+
+        .actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .icon-btn {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+        }
+
+        .icon-btn:hover {
+            background: var(--bg-tertiary);
+            border-color: var(--accent-primary);
+            transform: translateY(0);
+            box-shadow: none;
+        }
+
+        .icon-btn svg {
+            width: 18px;
+            height: 18px;
+            stroke: var(--text-primary);
+        }
+
+        .icon-btn:hover svg {
+            stroke: var(--accent-primary);
+        }
+
+        .icon-btn.delete:hover {
+            border-color: var(--error);
+        }
+
+        .icon-btn.delete:hover svg {
+            stroke: var(--error);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        tbody tr {
+            animation: slideIn 0.3s ease;
+        }
+
+        .time-display {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-primary);
+            font-weight: 500;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+        }
+
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--error);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .success-message {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: var(--success);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                font-size: 0.85rem;
+            }
+
+            thead th, tbody td {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <h1>Task Hour Logger</h1>
+                <p class="subtitle">Track team hours and project progress</p>
+            </div>
+            <div class="user-info">
+                <span class="welcome-text">Welcome, <strong id="currentUser">User</strong></span>
+                <button class="btn-logout" onclick="logout()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Logout
+                </button>
+            </div>
+        </header>
+
+        <div id="message-container"></div>
+
+        <div class="form-section">
+            <form id="taskForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Task</label>
+                        <input type="text" id="task" placeholder="Enter task..." required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Client</label>
+                        <select id="client" required>
+                            <option value="">Select client...</option>
+                            <option value="Medstar">Medstar</option>
+                            <option value="St.clair">St.clair</option>
+                            <option value="PDM">PDM</option>
+                            <option value="OVP">OVP</option>
+                            <option value="Orthomed">Orthomed</option>
+                            <option value="FC">FC</option>
+                            <option value="IPDRG">IPDRG</option>
+                            <option value="NLP">NLP</option>
+                            <option value="Phycon">Phycon</option>
+                            <option value="ROH">ROH</option>
+                            <option value="Demo">Demo</option>
+                            <option value="Others">Others</option>
+                            <option value="Scrum">Scrum</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Team</label>
+                        <select id="team" required>
+                            <option value="">Select...</option>
+                            <option value="Build">Build</option>
+                            <option value="Imp">Imp</option>
+                            <option value="Adhoc">Adhoc</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>User</label>
+                        <input type="text" id="user" readonly style="background: #e9ecef; cursor: not-allowed;" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Hours Spent</label>
+                        <div class="time-inputs">
+                            <input type="number" id="hours" min="0" max="999" placeholder="HH" required>
+                            <input type="number" id="minutes" min="0" max="59" placeholder="MM" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Start Date</label>
+                        <input type="date" id="startDate" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>End Date</label>
+                        <input type="date" id="endDate" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="status" required>
+                            <option value="">Select...</option>
+                            <option value="yet to start">Yet to Start</option>
+                            <option value="inprogress">In Progress</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit" id="submitBtn">Add Task Entry</button>
+            </form>
+        </div>
+
+        <div class="table-section">
+            <div class="filter-section">
+                <div class="filter-info">
+                    Use column filters below to search and filter tasks
+                </div>
+                <div class="filter-actions">
+                    <button type="button" class="btn-secondary" onclick="clearAllFilters()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display: inline; vertical-align: middle;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Clear All
+                    </button>
+                    <button type="button" class="btn-export" onclick="exportToExcel()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Export to Excel
+                    </button>
+                </div>
+            </div>
+
+            <div class="results-count" id="resultsCount">
+                Showing <strong id="resultNumber">0</strong> of <strong id="totalNumber">0</strong> tasks
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>
+                            <div>Task</div>
+                            <div class="column-filter">
+                                <input type="text" id="filterTask" placeholder="Search task..." oninput="applyFilters()">
+                            </div>
+                        </th>
+                        <th>
+                            <div>Client</div>
+                            <div class="column-filter">
+                                <select id="filterClient" onchange="applyFilters()">
+                                    <option value="">All</option>
+                                    <option value="Medstar">Medstar</option>
+                                    <option value="St.clair">St.clair</option>
+                                    <option value="PDM">PDM</option>
+                                    <option value="OVP">OVP</option>
+                                    <option value="Orthomed">Orthomed</option>
+                                    <option value="FC">FC</option>
+                                    <option value="IPDRG">IPDRG</option>
+                                    <option value="NLP">NLP</option>
+                                    <option value="Phycon">Phycon</option>
+                                    <option value="ROH">ROH</option>
+                                    <option value="Demo">Demo</option>
+                                    <option value="Others">Others</option>
+                                    <option value="Scrum">Scrum</option>
+                                </select>
+                            </div>
+                        </th>
+                        <th>
+                            <div>Team</div>
+                            <div class="column-filter">
+                                <select id="filterTeam" onchange="applyFilters()">
+                                    <option value="">All</option>
+                                    <option value="Build">Build</option>
+                                    <option value="Imp">Imp</option>
+                                    <option value="Adhoc">Adhoc</option>
+                                </select>
+                            </div>
+                        </th>
+                        <th>
+                            <div>User</div>
+                            <div class="column-filter">
+                                <select id="filterUser" onchange="applyFilters()">
+                                    <option value="">All</option>
+                                    <option value="Venkatakamesh">Venkatakamesh</option>
+                                    <option value="Chandrashekar">Chandrashekar</option>
+                                    <option value="Meenu">Meenu</option>
+                                </select>
+                            </div>
+                        </th>
+                        <th>
+                            <div>Hours</div>
+                            <div class="column-filter">
+                                <input type="text" id="filterHours" placeholder="e.g. 8:30" oninput="applyFilters()">
+                            </div>
+                        </th>
+                        <th>
+                            <div>Start Date</div>
+                            <div class="column-filter">
+                                <input type="date" id="filterStartDate" onchange="applyFilters()">
+                            </div>
+                        </th>
+                        <th>
+                            <div>End Date</div>
+                            <div class="column-filter">
+                                <input type="date" id="filterEndDate" onchange="applyFilters()">
+                            </div>
+                        </th>
+                        <th>
+                            <div>Status</div>
+                            <div class="column-filter">
+                                <select id="filterStatus" onchange="applyFilters()">
+                                    <option value="">All</option>
+                                    <option value="yet to start">Yet to Start</option>
+                                    <option value="inprogress">In Progress</option>
+                                    <option value="completed">Completed</option>
+                                </select>
+                            </div>
+                        </th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="taskTableBody">
+                    <tr>
+                        <td colspan="9">
+                            <div class="loading">
+                                Loading tasks...
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Check authentication on page load
+        const sessionId = localStorage.getItem('sessionId');
+        const username = localStorage.getItem('username');
+        
+        if (!sessionId || !username) {
+            window.location.href = '/';
+        }
+
+        // Display current user
+        document.getElementById('currentUser').textContent = username;
+        
+        // Set user field to logged-in user (readonly)
+        document.getElementById('user').value = username;
+
+        // Logout function
+        async function logout() {
+            try {
+                await fetch('/api/logout', {
+                    method: 'POST',
+                    headers: {
+                        'X-Session-Id': sessionId
+                    }
+                });
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+            
+            localStorage.removeItem('sessionId');
+            localStorage.removeItem('username');
+            window.location.href = '/';
+        }
+
+        // Make logout global
+        window.logout = logout;
+
+        // API helper with session
+        async function apiCall(url, options = {}) {
+            options.headers = {
+                ...options.headers,
+                'Content-Type': 'application/json',
+                'X-Session-Id': sessionId
+            };
+            
+            const response = await fetch(url, options);
+            
+            // Check if session expired
+            if (response.status === 401) {
+                alert('Session expired. Please login again.');
+                localStorage.removeItem('sessionId');
+                localStorage.removeItem('username');
+                window.location.href = '/';
+                throw new Error('Session expired');
+            }
+            
+            return response;
+        }
+
+        const API_URL = '/api/tasks';
+        let editingId = null;
+        let allTasks = []; // Store all tasks for filtering
+
+        const form = document.getElementById('taskForm');
+        const tableBody = document.getElementById('taskTableBody');
+        const submitBtn = document.getElementById('submitBtn');
+        const messageContainer = document.getElementById('message-container');
+        
+        // Filter elements - Column-based filters
+        const filterTask = document.getElementById('filterTask');
+        const filterClient = document.getElementById('filterClient');
+        const filterUser = document.getElementById('filterUser');
+        const filterTeam = document.getElementById('filterTeam');
+        const filterStatus = document.getElementById('filterStatus');
+        const filterHours = document.getElementById('filterHours');
+        const filterStartDate = document.getElementById('filterStartDate');
+        const filterEndDate = document.getElementById('filterEndDate');
+
+        // Set default dates to today
+        function setDefaultDates() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('startDate').value = today;
+            document.getElementById('endDate').value = today;
+        }
+
+        // Call on page load
+        setDefaultDates();
+
+        // Show message
+        function showMessage(message, type = 'success') {
+            messageContainer.innerHTML = `
+                <div class="${type}-message">
+                    ${message}
+                </div>
+            `;
+            setTimeout(() => {
+                messageContainer.innerHTML = '';
+            }, 3000);
+        }
+
+        // Format time display
+        function formatTime(hours, minutes) {
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+        }
+
+        // Format date display
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+
+        // Convert UTC date to IST (Indian Standard Time)
+        function formatDateToIST(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            // IST is UTC+5:30
+            const istOffset = 5.5 * 60 * 60 * 1000;
+            const istDate = new Date(date.getTime() + istOffset);
+            
+            const day = String(istDate.getUTCDate()).padStart(2, '0');
+            const month = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+            const year = istDate.getUTCFullYear();
+            const hours = String(istDate.getUTCHours()).padStart(2, '0');
+            const minutes = String(istDate.getUTCMinutes()).padStart(2, '0');
+            const seconds = String(istDate.getUTCSeconds()).padStart(2, '0');
+            
+            return `${day}/${month}/${year} ${hours}:${minutes}:${seconds} IST`;
+        }
+
+        // Load tasks from API
+        async function loadTasks() {
+            console.log('🔄 Loading tasks from database...');
+            try {
+                const response = await apiCall(API_URL);
+                console.log('📡 Response received:', response.status);
+                const data = await response.json();
+                allTasks = data.tasks || []; // Ensure it's an array
+                console.log('✅ Loaded tasks:', allTasks.length, 'tasks'); // Debug log
+                console.log('📋 Tasks data:', allTasks); // Show actual data
+                applyFilters(); // Apply filters to show current filtered view
+            } catch (error) {
+                console.error('❌ Error loading tasks:', error);
+                if (error.message !== 'Session expired') {
+                    showMessage('Error loading tasks from database', 'error');
+                }
+                allTasks = []; // Set to empty array on error
+                applyFilters();
+            }
+        }
+
+        // Apply filters - Column-based filtering
+        function applyFilters() {
+            let filteredTasks = [...allTasks];
+
+            // Filter by task name (search)
+            if (filterTask.value.trim()) {
+                const searchTerm = filterTask.value.toLowerCase();
+                filteredTasks = filteredTasks.filter(task => 
+                    task.task.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            // Filter by client (dropdown - exact match)
+            if (filterClient.value) {
+                filteredTasks = filteredTasks.filter(task => task.client === filterClient.value);
+            }
+
+            // Filter by user
+            if (filterUser.value) {
+                filteredTasks = filteredTasks.filter(task => task.user === filterUser.value);
+            }
+
+            // Filter by team
+            if (filterTeam.value) {
+                filteredTasks = filteredTasks.filter(task => task.team === filterTeam.value);
+            }
+
+            // Filter by status
+            if (filterStatus.value) {
+                filteredTasks = filteredTasks.filter(task => task.status === filterStatus.value);
+            }
+
+            // Filter by hours (search - matches hours:minutes format)
+            if (filterHours.value.trim()) {
+                const searchTerm = filterHours.value.toLowerCase();
+                filteredTasks = filteredTasks.filter(task => 
+                    formatTime(task.hours, task.minutes).includes(searchTerm)
+                );
+            }
+
+            // Filter by start date
+            if (filterStartDate.value) {
+                filteredTasks = filteredTasks.filter(task => task.start_date === filterStartDate.value);
+            }
+
+            // Filter by end date
+            if (filterEndDate.value) {
+                filteredTasks = filteredTasks.filter(task => task.end_date === filterEndDate.value);
+            }
+
+            renderTasks(filteredTasks);
+            updateResultsCount(filteredTasks.length, allTasks.length);
+        }
+
+        // Make applyFilters global
+        window.applyFilters = applyFilters;
+
+        // Clear all filters
+        function clearAllFilters() {
+            filterTask.value = '';
+            filterClient.value = '';
+            filterUser.value = '';
+            filterTeam.value = '';
+            filterStatus.value = '';
+            filterHours.value = '';
+            filterStartDate.value = '';
+            filterEndDate.value = '';
+            applyFilters();
+        }
+
+        // Make clearAllFilters global
+        window.clearAllFilters = clearAllFilters;
+
+        // Update results count
+        function updateResultsCount(filtered, total) {
+            document.getElementById('resultNumber').textContent = filtered;
+            document.getElementById('totalNumber').textContent = total;
+        }
+
+        // Export to Excel (CSV format)
+        async function exportToExcel() {
+            try {
+                showMessage('Preparing export...', 'success');
+                
+                // Get current filtered tasks
+                let tasksToExport = [...allTasks];
+                
+                // Apply same filters as display
+                if (filterTask.value.trim()) {
+                    const searchTerm = filterTask.value.toLowerCase();
+                    tasksToExport = tasksToExport.filter(task => 
+                        task.task.toLowerCase().includes(searchTerm)
+                    );
+                }
+                if (filterClient.value) {
+                    tasksToExport = tasksToExport.filter(task => task.client === filterClient.value);
+                }
+                if (filterUser.value) {
+                    tasksToExport = tasksToExport.filter(task => task.user === filterUser.value);
+                }
+                if (filterTeam.value) {
+                    tasksToExport = tasksToExport.filter(task => task.team === filterTeam.value);
+                }
+                if (filterStatus.value) {
+                    tasksToExport = tasksToExport.filter(task => task.status === filterStatus.value);
+                }
+                if (filterHours.value.trim()) {
+                    const searchTerm = filterHours.value.toLowerCase();
+                    tasksToExport = tasksToExport.filter(task => 
+                        formatTime(task.hours, task.minutes).includes(searchTerm)
+                    );
+                }
+                if (filterStartDate.value) {
+                    tasksToExport = tasksToExport.filter(task => task.start_date === filterStartDate.value);
+                }
+                if (filterEndDate.value) {
+                    tasksToExport = tasksToExport.filter(task => task.end_date === filterEndDate.value);
+                }
+
+                // Create CSV content
+                const headers = ['ID', 'Task', 'Client', 'Team', 'User', 'Hours', 'Minutes', 'Total Time', 'Start Date', 'End Date', 'Status', 'Created At', 'Updated At'];
+                const csvRows = [headers.join(',')];
+                
+                tasksToExport.forEach(task => {
+                    const totalMinutes = task.hours * 60 + task.minutes;
+                    const totalTime = `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
+                    
+                    const values = [
+                        task.id,
+                        `"${task.task.replace(/"/g, '""')}"`,
+                        `"${task.client.replace(/"/g, '""')}"`,
+                        task.team,
+                        task.user,
+                        task.hours,
+                        task.minutes,
+                        totalTime,
+                        task.start_date,
+                        task.end_date,
+                        task.status,
+                        formatDateToIST(task.created_at),
+                        formatDateToIST(task.updated_at)
+                    ];
+                    csvRows.push(values.join(','));
+                });
+                
+                // Create blob and download
+                const csvContent = csvRows.join('\n');
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                
+                const filename = `task-logs-${new Date().toISOString().split('T')[0]}.csv`;
+                link.setAttribute('href', url);
+                link.setAttribute('download', filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showMessage(`Exported ${tasksToExport.length} tasks successfully!`, 'success');
+            } catch (error) {
+                console.error('Error exporting:', error);
+                showMessage('Error exporting data', 'error');
+            }
+        }
+
+        // Make export function global
+        window.exportToExcel = exportToExcel;
+
+        // Add or update task
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            submitBtn.disabled = true;
+
+            const taskData = {
+                task: document.getElementById('task').value,
+                client: document.getElementById('client').value,
+                team: document.getElementById('team').value,
+                user: document.getElementById('user').value,
+                hours: parseInt(document.getElementById('hours').value),
+                minutes: parseInt(document.getElementById('minutes').value),
+                start_date: document.getElementById('startDate').value,
+                end_date: document.getElementById('endDate').value,
+                status: document.getElementById('status').value
+            };
+
+            try {
+                let response;
+                if (editingId) {
+                    response = await apiCall(`${API_URL}/${editingId}`, {
+                        method: 'PUT',
+                        body: JSON.stringify(taskData)
+                    });
+                    showMessage('Task updated successfully!');
+                } else {
+                    response = await apiCall(API_URL, {
+                        method: 'POST',
+                        body: JSON.stringify(taskData)
+                    });
+                    showMessage('Task added successfully!');
+                }
+
+                if (!response.ok) {
+                    throw new Error('Failed to save task');
+                }
+
+                editingId = null;
+                form.reset();
+                setDefaultDates(); // Reset dates to today after form reset
+                document.getElementById('user').value = username; // Reset user to logged-in user
+                submitBtn.textContent = 'Add Task Entry';
+                
+                // Reload tasks but keep filters active
+                await loadTasks();
+            } catch (error) {
+                console.error('Error saving task:', error);
+                showMessage('Error saving task to database', 'error');
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Render tasks table
+        function renderTasks(tasks) {
+            if (!tasks || tasks.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="9">
+                            <div class="empty-state">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                </svg>
+                                <p>No task entries found. Try adjusting your filters or add a new entry.</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tableBody.innerHTML = tasks.map(task => `
+                <tr data-id="${task.id}">
+                    <td>${task.task}</td>
+                    <td>${task.client}</td>
+                    <td><span class="badge ${task.team.toLowerCase()}">${task.team}</span></td>
+                    <td>${task.user}</td>
+                    <td><span class="time-display">${formatTime(task.hours, task.minutes)}</span></td>
+                    <td>${formatDate(task.start_date)}</td>
+                    <td>${formatDate(task.end_date)}</td>
+                    <td><span class="badge ${task.status.replace(' ', '-').toLowerCase()}">${task.status}</span></td>
+                    <td>
+                        <div class="actions">
+                            <button class="icon-btn" onclick="editTask(${task.id})" title="Edit">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                            </button>
+                            <button class="icon-btn delete" onclick="deleteTask(${task.id})" title="Delete">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Edit task
+        window.editTask = async (id) => {
+            try {
+                const response = await apiCall(`${API_URL}/${id}`);
+                const data = await response.json();
+                const task = data.task;
+
+                editingId = id;
+                document.getElementById('task').value = task.task;
+                document.getElementById('client').value = task.client;
+                document.getElementById('team').value = task.team;
+                document.getElementById('user').value = task.user;
+                document.getElementById('hours').value = task.hours;
+                document.getElementById('minutes').value = task.minutes;
+                document.getElementById('startDate').value = task.start_date;
+                document.getElementById('endDate').value = task.end_date;
+                document.getElementById('status').value = task.status;
+
+                submitBtn.textContent = 'Update Task Entry';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } catch (error) {
+                console.error('Error loading task:', error);
+                showMessage('Error loading task for editing', 'error');
+            }
+        };
+
+        // Delete task
+        window.deleteTask = async (id) => {
+            if (!confirm('Are you sure you want to delete this entry?')) {
+                return;
+            }
+
+            try {
+                const response = await apiCall(`${API_URL}/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to delete task');
+                }
+
+                showMessage('Task deleted successfully!');
+                
+                // Reload tasks but keep filters active
+                await loadTasks();
+            } catch (error) {
+                console.error('Error deleting task:', error);
+                showMessage('Error deleting task from database', 'error');
+            }
+        };
+
+        // Initialize - Load tasks on page load
+        loadTasks();
+    </script>
+</body>
+</html>
