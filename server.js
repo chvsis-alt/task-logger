@@ -8,23 +8,17 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ==========================================
-// USERS
-// ==========================================
+// Users
 const users = {
     'Venkatakamesh': 'Venkatakamesh',
     'Chandrashekar': 'Chandrashekar',
     'Meenu': 'Meenu'
 };
 
-// ==========================================
-// SESSIONS (In-Memory)
-// ==========================================
+// Sessions
 const sessions = new Map();
 
-// ==========================================
-// MIDDLEWARE
-// ==========================================
+// Middleware
 app.use(cors({ origin: true, credentials: true }));
 app.use(bodyParser.json());
 app.use((req, res, next) => {
@@ -36,9 +30,7 @@ app.use((req, res, next) => {
 });
 app.use(express.static('public'));
 
-// ==========================================
-// POSTGRESQL CONNECTION
-// ==========================================
+// PostgreSQL Connection
 console.log('='.repeat(80));
 console.log('CONNECTING TO DATABASE...');
 console.log('='.repeat(80));
@@ -50,9 +42,7 @@ const pool = new Pool({
     }
 });
 
-// ==========================================
-// INITIALIZE DATABASE (AUTO CREATE TABLE)
-// ==========================================
+// Initialize Database
 async function initializeDatabase() {
     try {
         console.log('Testing database connection...');
@@ -62,8 +52,23 @@ async function initializeDatabase() {
         console.log('✅ Database connected successfully');
         console.log('📅 Database time:', testResult.rows[0].now);
         
-        // Create table if it doesn't exist
-        console.log('\nCreating table if not exists...');
+        // Drop existing table if it has wrong schema
+        console.log('\nChecking for existing table...');
+        const checkTable = await pool.query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'tasks' AND column_name = 'user'
+        `);
+        
+        if (checkTable.rows.length > 0) {
+            console.log('⚠️  Found old table with wrong column name');
+            console.log('Dropping old table...');
+            await pool.query('DROP TABLE IF EXISTS tasks CASCADE');
+            console.log('✅ Old table dropped');
+        }
+        
+        // Create table with correct schema
+        console.log('\nCreating tasks table...');
         
         const createTableSQL = `
             CREATE TABLE IF NOT EXISTS tasks (
@@ -71,7 +76,7 @@ async function initializeDatabase() {
                 task TEXT NOT NULL,
                 client TEXT NOT NULL,
                 team TEXT NOT NULL,
-                username TEXT NOT NULL,
+                task_user TEXT NOT NULL,
                 hours INTEGER NOT NULL,
                 minutes INTEGER NOT NULL,
                 start_date DATE NOT NULL,
@@ -83,13 +88,14 @@ async function initializeDatabase() {
         `;
         
         await pool.query(createTableSQL);
-        console.log('✅ Table "tasks" is ready');
+        console.log('✅ Table "tasks" created successfully');
         
         // Create indexes
         console.log('Creating indexes...');
-        await pool.query('CREATE INDEX IF NOT EXISTS idx_tasks_user ON tasks(username)');
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_tasks_user ON tasks(task_user)');
         await pool.query('CREATE INDEX IF NOT EXISTS idx_tasks_team ON tasks(team)');
         await pool.query('CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)');
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_tasks_dates ON tasks(start_date, end_date)');
         console.log('✅ Indexes created');
         
         // Count existing records
@@ -108,18 +114,9 @@ async function initializeDatabase() {
         console.error('Code:', error.code);
         if (error.detail) console.error('Detail:', error.detail);
         console.error('='.repeat(80));
-        console.error('Please check:');
-        console.error('1. DATABASE_URL environment variable is set');
-        console.error('2. Neon database is accessible');
-        console.error('3. Connection string includes ?sslmode=require');
-        console.error('='.repeat(80));
         throw error;
     }
 }
-
-// ==========================================
-// API ENDPOINTS
-// ==========================================
 
 // Login
 app.post('/api/login', (req, res) => {
@@ -194,43 +191,39 @@ app.post('/api/tasks', requireAuth, async (req, res) => {
     const { task, client, team, user, hours, minutes, start_date, end_date, status } = req.body;
     
     console.log('='.repeat(80));
-    console.log('📝 CREATE TASK REQUEST RECEIVED');
+    console.log('📝 CREATE TASK REQUEST');
     console.log('='.repeat(80));
     console.log('Authenticated user:', req.user.username);
-    console.log('Request body:', JSON.stringify(req.body, null, 2));
-    console.log('='.repeat(80));
+    console.log('Task data:', { task, client, team, user, hours, minutes, start_date, end_date, status });
     
     // Validation
     if (!task || !client || !team || !user || 
         hours === undefined || minutes === undefined || 
         !start_date || !end_date || !status) {
-        console.log('❌ VALIDATION FAILED');
-        console.log('Missing fields:', {
-            task: !task,
-            client: !client,
-            team: !team,
-            user: !user,
-            hours: hours === undefined,
-            minutes: minutes === undefined,
-            start_date: !start_date,
-            end_date: !end_date,
-            status: !status
-        });
+        console.log('❌ VALIDATION FAILED - Missing fields');
         return res.status(400).json({ error: 'All fields are required' });
     }
 
     try {
         const sql = `
-            INSERT INTO tasks (task, client, team, username, hours, minutes, start_date, end_date, status) 
+            INSERT INTO tasks (task, client, team, task_user, hours, minutes, start_date, end_date, status) 
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
             RETURNING *
         `;
         
-        const values = [task, client, team, user, 
-                       parseInt(hours), parseInt(minutes), 
-                       start_date, end_date, status];
+        const values = [
+            task, 
+            client, 
+            team, 
+            user,  // This goes into task_user column
+            parseInt(hours), 
+            parseInt(minutes), 
+            start_date, 
+            end_date, 
+            status
+        ];
         
-        console.log('Executing SQL with values:', values);
+        console.log('Executing INSERT with values:', values);
         
         const result = await pool.query(sql, values);
         const newTask = result.rows[0];
@@ -238,7 +231,7 @@ app.post('/api/tasks', requireAuth, async (req, res) => {
         console.log('='.repeat(80));
         console.log('✅ TASK CREATED SUCCESSFULLY!');
         console.log('='.repeat(80));
-        console.log('New task ID:', newTask.id);
+        console.log('Task ID:', newTask.id);
         console.log('Created at:', newTask.created_at);
         console.log('='.repeat(80));
         
@@ -253,22 +246,16 @@ app.post('/api/tasks', requireAuth, async (req, res) => {
         
     } catch (error) {
         console.log('='.repeat(80));
-        console.log('❌ DATABASE INSERT ERROR');
+        console.log('❌ INSERT ERROR');
         console.log('='.repeat(80));
         console.log('Error message:', error.message);
         console.log('Error code:', error.code);
-        console.log('Error name:', error.name);
         if (error.detail) console.log('Error detail:', error.detail);
         if (error.hint) console.log('Error hint:', error.hint);
-        if (error.position) console.log('Error position:', error.position);
-        console.log('Full error:', error);
         console.log('='.repeat(80));
         
-        // Send detailed error to client for debugging
         res.status(500).json({ 
-            error: 'Database error: ' + error.message,
-            code: error.code,
-            detail: error.detail
+            error: 'Database error: ' + error.message
         });
     }
 });
@@ -288,16 +275,25 @@ app.put('/api/tasks/:id', requireAuth, async (req, res) => {
     try {
         const sql = `
             UPDATE tasks 
-            SET task = $1, client = $2, team = $3, username = $4, 
+            SET task = $1, client = $2, team = $3, task_user = $4, 
                 hours = $5, minutes = $6, start_date = $7, end_date = $8, 
                 status = $9, updated_at = CURRENT_TIMESTAMP
             WHERE id = $10
             RETURNING *
         `;
         
-        const values = [task, client, team, user, 
-                       parseInt(hours), parseInt(minutes), 
-                       start_date, end_date, status, req.params.id];
+        const values = [
+            task, 
+            client, 
+            team, 
+            user,  // This goes into task_user column
+            parseInt(hours), 
+            parseInt(minutes), 
+            start_date, 
+            end_date, 
+            status, 
+            req.params.id
+        ];
         
         const result = await pool.query(sql, values);
         
@@ -358,22 +354,17 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ==========================================
-// START SERVER
-// ==========================================
+// Start Server
 async function startServer() {
     try {
-        // Initialize database first
         await initializeDatabase();
         
-        // Then start server
         app.listen(PORT, () => {
             console.log('');
             console.log('='.repeat(80));
             console.log('🚀 SERVER STARTED SUCCESSFULLY');
             console.log('='.repeat(80));
             console.log('Port:', PORT);
-            console.log('URL: http://localhost:' + PORT);
             console.log('Status: READY ✅');
             console.log('='.repeat(80));
             console.log('');
@@ -385,7 +376,6 @@ async function startServer() {
     }
 }
 
-// Start the server
 startServer();
 
 // Graceful shutdown
