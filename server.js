@@ -164,8 +164,15 @@ app.get('/api/tasks', requireAuth, async (req, res) => {
     
     try {
         const result = await pool.query('SELECT * FROM tasks ORDER BY created_at DESC');
-        console.log('✅ Retrieved', result.rows.length, 'tasks');
-        res.json({ tasks: result.rows });
+        
+        // Map task_user to user for frontend compatibility
+        const tasks = result.rows.map(task => ({
+            ...task,
+            user: task.task_user  // Add user field from task_user
+        }));
+        
+        console.log('✅ Retrieved', tasks.length, 'tasks');
+        res.json({ tasks: tasks });
     } catch (error) {
         console.error('❌ SELECT error:', error);
         res.status(500).json({ error: error.message });
@@ -179,7 +186,14 @@ app.get('/api/tasks/:id', requireAuth, async (req, res) => {
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Task not found' });
         }
-        res.json({ task: result.rows[0] });
+        
+        // Map task_user to user for frontend compatibility
+        const task = {
+            ...result.rows[0],
+            user: result.rows[0].task_user
+        };
+        
+        res.json({ task: task });
     } catch (error) {
         console.error('❌ SELECT error:', error);
         res.status(500).json({ error: error.message });
@@ -228,10 +242,17 @@ app.post('/api/tasks', requireAuth, async (req, res) => {
         const result = await pool.query(sql, values);
         const newTask = result.rows[0];
         
+        // Map task_user to user for frontend compatibility
+        const taskResponse = {
+            ...newTask,
+            user: newTask.task_user
+        };
+        
         console.log('='.repeat(80));
         console.log('✅ TASK CREATED SUCCESSFULLY!');
         console.log('='.repeat(80));
         console.log('Task ID:', newTask.id);
+        console.log('User:', newTask.task_user);
         console.log('Created at:', newTask.created_at);
         console.log('='.repeat(80));
         
@@ -241,7 +262,7 @@ app.post('/api/tasks', requireAuth, async (req, res) => {
         
         res.json({
             message: 'Task created successfully',
-            task: newTask
+            task: taskResponse
         });
         
     } catch (error) {
