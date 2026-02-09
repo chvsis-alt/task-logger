@@ -4,19 +4,16 @@ const { Pool } = require('pg');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Users
-const users = {
-    'Venkatakamesh': 'Venkatakamesh',
-    'Chandrashekar': 'Chandrashekar',
-    'Meenu': 'Meenu'
-};
-
 // Sessions
 const sessions = new Map();
+
+// Password reset tokens (in production, use Redis or database)
+const resetTokens = new Map();
 
 // Middleware
 app.use(cors({ origin: true, credentials: true }));
@@ -42,39 +39,76 @@ const pool = new Pool({
     }
 });
 
+// Hash password function
+function hashPassword(password) {
+    return crypto.createHash('sha256').update(password).digest('hex');
+}
+
 // Initialize Database
 async function initializeDatabase() {
     try {
         console.log('Testing database connection...');
         
-        // Test connection
         const testResult = await pool.query('SELECT NOW()');
         console.log('✅ Database connected successfully');
         console.log('📅 Database time:', testResult.rows[0].now);
         
-        // Drop existing table if it has wrong schema
-        console.log('\nChecking for existing table...');
-        const checkTable = await pool.query(`
+        // Create users table
+        console.log('\nCreating users table...');
+        const createUsersTable = `
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                email TEXT UNIQUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `;
+        await pool.query(createUsersTable);
+        console.log('✅ Users table ready');
+        
+        // Create default users if they don't exist
+        const defaultUsers = [
+            { username: 'Venkatakamesh', password: 'Venkatakamesh' },
+            { username: 'Chandrashekar', password: 'Chandrashekar' },
+            { username: 'Meenu', password: 'Meenu' }
+        ];
+        
+        for (const user of defaultUsers) {
+            const checkUser = await pool.query('SELECT id FROM users WHERE username = $1', [user.username]);
+            if (checkUser.rows.length === 0) {
+                await pool.query(
+                    'INSERT INTO users (username, password_hash) VALUES ($1, $2)',
+                    [user.username, hashPassword(user.password)]
+                );
+                console.log(`✅ Created default user: ${user.username}`);
+            }
+        }
+        
+        // Drop old tasks table if it exists with wrong schema
+        console.log('\nChecking tasks table schema...');
+        const checkOldTable = await pool.query(`
             SELECT column_name 
             FROM information_schema.columns 
-            WHERE table_name = 'tasks' AND column_name = 'user'
+            WHERE table_name = 'tasks' AND column_name IN ('user', 'username')
         `);
         
-        if (checkTable.rows.length > 0) {
-            console.log('⚠️  Found old table with wrong column name');
+        if (checkOldTable.rows.length > 0) {
+            console.log('⚠️  Found old table with wrong schema');
             console.log('Dropping old table...');
             await pool.query('DROP TABLE IF EXISTS tasks CASCADE');
             console.log('✅ Old table dropped');
         }
         
-        // Create table with correct schema
-        console.log('\nCreating tasks table...');
-        
-        const createTableSQL = `
+        // Create tasks table with platform column
+        console.log('Creating tasks table...');
+        const createTasksTable = `
             CREATE TABLE IF NOT EXISTS tasks (
                 id SERIAL PRIMARY KEY,
                 task TEXT NOT NULL,
                 client TEXT NOT NULL,
+                platform TEXT NOT NULL,
                 team TEXT NOT NULL,
                 task_user TEXT NOT NULL,
                 hours INTEGER NOT NULL,
@@ -86,21 +120,23 @@ async function initializeDatabase() {
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `;
-        
-        await pool.query(createTableSQL);
-        console.log('✅ Table "tasks" created successfully');
+        await pool.query(createTasksTable);
+        console.log('✅ Tasks table ready');
         
         // Create indexes
         console.log('Creating indexes...');
         await pool.query('CREATE INDEX IF NOT EXISTS idx_tasks_user ON tasks(task_user)');
         await pool.query('CREATE INDEX IF NOT EXISTS idx_tasks_team ON tasks(team)');
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_tasks_platform ON tasks(platform)');
         await pool.query('CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)');
         await pool.query('CREATE INDEX IF NOT EXISTS idx_tasks_dates ON tasks(start_date, end_date)');
         console.log('✅ Indexes created');
         
-        // Count existing records
-        const countResult = await pool.query('SELECT COUNT(*) as count FROM tasks');
-        console.log(`📊 Current records in database: ${countResult.rows[0].count}`);
+        // Count records
+        const taskCount = await pool.query('SELECT COUNT(*) as count FROM tasks');
+        const userCount = await pool.query('SELECT COUNT(*) as count FROM users');
+        console.log(`📊 Users in database: ${userCount.rows[0].count}`);
+        console.log(`📊 Tasks in database: ${taskCount.rows[0].count}`);
         
         console.log('='.repeat(80));
         console.log('DATABASE READY ✅');
@@ -118,23 +154,92 @@ async function initializeDatabase() {
     }
 }
 
+// ==========================================
+// AUTH ENDPOINTS
+// ==========================================
+
+// Signup
+app.post('/api/signup', async (req, res) => {
+    const { username, password, email } = req.body;
+    
+    console.log('📝 Signup attempt:', username);
+    
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password required' });
+    }
+    
+    if (username.length < 3) {
+        return res.status(400).json({ error: 'Username must be at least 3 characters' });
+    }
+    
+    if (password.length < 3) {
+        return res.status(400).json({ error: 'Password must be at least 3 characters' });
+    }
+    
+    try {
+        // Check if user exists
+        const checkUser = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
+        
+        if (checkUser.rows.length > 0) {
+            return res.status(400).json({ error: 'Username already exists' });
+        }
+        
+        // Create user
+        const passwordHash = hashPassword(password);
+        await pool.query(
+            'INSERT INTO users (username, password_hash, email) VALUES ($1, $2, $3)',
+            [username, passwordHash, email || null]
+        );
+        
+        console.log('✅ User created:', username);
+        res.json({ success: true, message: 'Account created successfully! Please login.' });
+        
+    } catch (error) {
+        console.error('❌ Signup error:', error);
+        res.status(500).json({ error: 'Failed to create account' });
+    }
+});
+
 // Login
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
+    
     console.log('🔐 Login attempt:', username);
     
     if (!username || !password) {
         return res.status(400).json({ error: 'Username and password required' });
     }
     
-    if (users[username] && users[username] === password) {
+    try {
+        // Get user from database
+        const result = await pool.query(
+            'SELECT id, username, password_hash FROM users WHERE username = $1',
+            [username]
+        );
+        
+        if (result.rows.length === 0) {
+            console.log('❌ User not found:', username);
+            return res.status(401).json({ error: 'Invalid username or password' });
+        }
+        
+        const user = result.rows[0];
+        const passwordHash = hashPassword(password);
+        
+        if (user.password_hash !== passwordHash) {
+            console.log('❌ Wrong password for:', username);
+            return res.status(401).json({ error: 'Invalid username or password' });
+        }
+        
+        // Create session
         const sessionId = Date.now().toString() + Math.random().toString(36).substring(2);
-        sessions.set(sessionId, { username, loginTime: new Date() });
+        sessions.set(sessionId, { username: user.username, userId: user.id, loginTime: new Date() });
+        
         console.log('✅ Login successful:', username);
-        res.json({ success: true, sessionId, username });
-    } else {
-        console.log('❌ Login failed:', username);
-        res.status(401).json({ error: 'Invalid credentials' });
+        res.json({ success: true, sessionId, username: user.username });
+        
+    } catch (error) {
+        console.error('❌ Login error:', error);
+        res.status(500).json({ error: 'Login failed' });
     }
 });
 
@@ -148,6 +253,97 @@ app.post('/api/logout', (req, res) => {
     res.json({ success: true });
 });
 
+// Request password reset
+app.post('/api/reset-password-request', async (req, res) => {
+    const { username } = req.body;
+    
+    console.log('🔑 Password reset requested for:', username);
+    
+    if (!username) {
+        return res.status(400).json({ error: 'Username required' });
+    }
+    
+    try {
+        // Check if user exists
+        const result = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
+        
+        if (result.rows.length === 0) {
+            // Don't reveal if user exists or not
+            return res.json({ success: true, message: 'If the username exists, a reset code has been generated.' });
+        }
+        
+        // Generate reset token
+        const resetToken = crypto.randomBytes(3).toString('hex').toUpperCase();
+        resetTokens.set(username, {
+            token: resetToken,
+            expires: Date.now() + 15 * 60 * 1000 // 15 minutes
+        });
+        
+        console.log('✅ Reset token generated for:', username);
+        console.log('🔑 Reset code:', resetToken);
+        
+        res.json({ 
+            success: true, 
+            message: 'Reset code generated',
+            resetCode: resetToken // In production, send via email instead
+        });
+        
+    } catch (error) {
+        console.error('❌ Reset request error:', error);
+        res.status(500).json({ error: 'Failed to process request' });
+    }
+});
+
+// Reset password with token
+app.post('/api/reset-password', async (req, res) => {
+    const { username, resetCode, newPassword } = req.body;
+    
+    console.log('🔑 Password reset attempt for:', username);
+    
+    if (!username || !resetCode || !newPassword) {
+        return res.status(400).json({ error: 'All fields required' });
+    }
+    
+    if (newPassword.length < 3) {
+        return res.status(400).json({ error: 'Password must be at least 3 characters' });
+    }
+    
+    try {
+        // Check reset token
+        const tokenData = resetTokens.get(username);
+        
+        if (!tokenData) {
+            return res.status(400).json({ error: 'Invalid or expired reset code' });
+        }
+        
+        if (Date.now() > tokenData.expires) {
+            resetTokens.delete(username);
+            return res.status(400).json({ error: 'Reset code has expired' });
+        }
+        
+        if (tokenData.token !== resetCode.toUpperCase()) {
+            return res.status(400).json({ error: 'Invalid reset code' });
+        }
+        
+        // Update password
+        const passwordHash = hashPassword(newPassword);
+        await pool.query(
+            'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE username = $2',
+            [passwordHash, username]
+        );
+        
+        // Clear reset token
+        resetTokens.delete(username);
+        
+        console.log('✅ Password reset successful for:', username);
+        res.json({ success: true, message: 'Password reset successfully! Please login.' });
+        
+    } catch (error) {
+        console.error('❌ Password reset error:', error);
+        res.status(500).json({ error: 'Failed to reset password' });
+    }
+});
+
 // Auth middleware
 function requireAuth(req, res, next) {
     const sid = req.headers['x-session-id'];
@@ -157,6 +353,10 @@ function requireAuth(req, res, next) {
     req.user = sessions.get(sid);
     next();
 }
+
+// ==========================================
+// TASK ENDPOINTS
+// ==========================================
 
 // GET all tasks
 app.get('/api/tasks', requireAuth, async (req, res) => {
@@ -168,7 +368,7 @@ app.get('/api/tasks', requireAuth, async (req, res) => {
         // Map task_user to user for frontend compatibility
         const tasks = result.rows.map(task => ({
             ...task,
-            user: task.task_user  // Add user field from task_user
+            user: task.task_user
         }));
         
         console.log('✅ Retrieved', tasks.length, 'tasks');
@@ -187,7 +387,6 @@ app.get('/api/tasks/:id', requireAuth, async (req, res) => {
             return res.status(404).json({ error: 'Task not found' });
         }
         
-        // Map task_user to user for frontend compatibility
         const task = {
             ...result.rows[0],
             user: result.rows[0].task_user
@@ -202,16 +401,16 @@ app.get('/api/tasks/:id', requireAuth, async (req, res) => {
 
 // CREATE task
 app.post('/api/tasks', requireAuth, async (req, res) => {
-    const { task, client, team, user, hours, minutes, start_date, end_date, status } = req.body;
+    const { task, client, platform, team, user, hours, minutes, start_date, end_date, status } = req.body;
     
     console.log('='.repeat(80));
     console.log('📝 CREATE TASK REQUEST');
     console.log('='.repeat(80));
     console.log('Authenticated user:', req.user.username);
-    console.log('Task data:', { task, client, team, user, hours, minutes, start_date, end_date, status });
+    console.log('Task data:', { task, client, platform, team, user, hours, minutes, start_date, end_date, status });
     
     // Validation
-    if (!task || !client || !team || !user || 
+    if (!task || !client || !platform || !team || !user || 
         hours === undefined || minutes === undefined || 
         !start_date || !end_date || !status) {
         console.log('❌ VALIDATION FAILED - Missing fields');
@@ -220,16 +419,17 @@ app.post('/api/tasks', requireAuth, async (req, res) => {
 
     try {
         const sql = `
-            INSERT INTO tasks (task, client, team, task_user, hours, minutes, start_date, end_date, status) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+            INSERT INTO tasks (task, client, platform, team, task_user, hours, minutes, start_date, end_date, status) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
             RETURNING *
         `;
         
         const values = [
             task, 
-            client, 
+            client,
+            platform,
             team, 
-            user,  // This goes into task_user column
+            user,
             parseInt(hours), 
             parseInt(minutes), 
             start_date, 
@@ -242,7 +442,6 @@ app.post('/api/tasks', requireAuth, async (req, res) => {
         const result = await pool.query(sql, values);
         const newTask = result.rows[0];
         
-        // Map task_user to user for frontend compatibility
         const taskResponse = {
             ...newTask,
             user: newTask.task_user
@@ -253,10 +452,10 @@ app.post('/api/tasks', requireAuth, async (req, res) => {
         console.log('='.repeat(80));
         console.log('Task ID:', newTask.id);
         console.log('User:', newTask.task_user);
+        console.log('Platform:', newTask.platform);
         console.log('Created at:', newTask.created_at);
         console.log('='.repeat(80));
         
-        // Verify count
         const countResult = await pool.query('SELECT COUNT(*) as count FROM tasks');
         console.log('📊 Total tasks in database:', countResult.rows[0].count);
         
@@ -283,11 +482,11 @@ app.post('/api/tasks', requireAuth, async (req, res) => {
 
 // UPDATE task
 app.put('/api/tasks/:id', requireAuth, async (req, res) => {
-    const { task, client, team, user, hours, minutes, start_date, end_date, status } = req.body;
+    const { task, client, platform, team, user, hours, minutes, start_date, end_date, status } = req.body;
     
     console.log('📝 UPDATE task', req.params.id);
     
-    if (!task || !client || !team || !user || 
+    if (!task || !client || !platform || !team || !user || 
         hours === undefined || minutes === undefined || 
         !start_date || !end_date || !status) {
         return res.status(400).json({ error: 'All fields are required' });
@@ -296,18 +495,19 @@ app.put('/api/tasks/:id', requireAuth, async (req, res) => {
     try {
         const sql = `
             UPDATE tasks 
-            SET task = $1, client = $2, team = $3, task_user = $4, 
-                hours = $5, minutes = $6, start_date = $7, end_date = $8, 
-                status = $9, updated_at = CURRENT_TIMESTAMP
-            WHERE id = $10
+            SET task = $1, client = $2, platform = $3, team = $4, task_user = $5, 
+                hours = $6, minutes = $7, start_date = $8, end_date = $9, 
+                status = $10, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $11
             RETURNING *
         `;
         
         const values = [
             task, 
-            client, 
+            client,
+            platform,
             team, 
-            user,  // This goes into task_user column
+            user,
             parseInt(hours), 
             parseInt(minutes), 
             start_date, 
@@ -354,11 +554,13 @@ app.delete('/api/tasks/:id', requireAuth, async (req, res) => {
 // Health check
 app.get('/api/health', async (req, res) => {
     try {
-        const result = await pool.query('SELECT COUNT(*) as count FROM tasks');
+        const taskCount = await pool.query('SELECT COUNT(*) as count FROM tasks');
+        const userCount = await pool.query('SELECT COUNT(*) as count FROM users');
         res.json({
             status: 'ok',
             database: 'connected',
-            taskCount: result.rows[0].count,
+            taskCount: taskCount.rows[0].count,
+            userCount: userCount.rows[0].count,
             timestamp: new Date()
         });
     } catch (error) {
