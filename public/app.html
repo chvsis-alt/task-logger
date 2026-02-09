@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Task Hour Logger</title>
+    <title>TimeSheet</title>
     <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -569,7 +569,7 @@
     <div class="container">
         <header>
             <div>
-                <h1>Task Hour Logger</h1>
+                <h1>TimeSheet</h1>
                 <p class="subtitle">Track team hours and project progress</p>
             </div>
             <div class="user-info">
@@ -615,13 +615,26 @@
                     </div>
 
                     <div class="form-group">
+                        <label>Platform</label>
+                        <select id="platform" required>
+                            <option value="">Select platform...</option>
+                            <option value="Oscar">Oscar</option>
+                            <option value="OscarLite">OscarLite</option>
+                            <option value="REVCDI">REVCDI</option>
+                            <option value="RevCode">RevCode</option>
+                            <option value="Curate">Curate</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
                         <label>Team</label>
                         <select id="team" required>
                             <option value="">Select...</option>
                             <option value="Build">Build</option>
                             <option value="Imp">Imp</option>
                             <option value="Adhoc">Adhoc</option>
-                            <option value="Oscar Lite">Oscar Lite</option>
+                            <option value="Support">Support</option>
+                            <option value="Internal">Internal</option>
                         </select>
                     </div>
 
@@ -720,6 +733,19 @@
                             </div>
                         </th>
                         <th>
+                            <div>Platform</div>
+                            <div class="column-filter">
+                                <select id="filterPlatform" onchange="applyFilters()">
+                                    <option value="">All</option>
+                                    <option value="Oscar">Oscar</option>
+                                    <option value="OscarLite">OscarLite</option>
+                                    <option value="REVCDI">REVCDI</option>
+                                    <option value="RevCode">RevCode</option>
+                                    <option value="Curate">Curate</option>
+                                </select>
+                            </div>
+                        </th>
+                        <th>
                             <div>Team</div>
                             <div class="column-filter">
                                 <select id="filterTeam" onchange="applyFilters()">
@@ -727,7 +753,8 @@
                                     <option value="Build">Build</option>
                                     <option value="Imp">Imp</option>
                                     <option value="Adhoc">Adhoc</option>
-                                    <option value="Oscar Lite">Oscar Lite</option>
+                                    <option value="Support">Support</option>
+                                    <option value="Internal">Internal</option>
                                 </select>
                             </div>
                         </th>
@@ -953,6 +980,11 @@
                 filteredTasks = filteredTasks.filter(task => task.client === filterClient.value);
             }
 
+            // Filter by platform
+            if (document.getElementById('filterPlatform')?.value) {
+                filteredTasks = filteredTasks.filter(task => task.platform === document.getElementById('filterPlatform').value);
+            }
+
             // Filter by user
             if (filterUser.value) {
                 filteredTasks = filteredTasks.filter(task => task.user === filterUser.value);
@@ -978,12 +1010,18 @@
 
             // Filter by start date
             if (filterStartDate.value) {
-                filteredTasks = filteredTasks.filter(task => task.start_date === filterStartDate.value);
+                filteredTasks = filteredTasks.filter(task => {
+                    const taskDate = task.start_date.split('T')[0]; // Handle both YYYY-MM-DD and full ISO format
+                    return taskDate === filterStartDate.value;
+                });
             }
 
             // Filter by end date
             if (filterEndDate.value) {
-                filteredTasks = filteredTasks.filter(task => task.end_date === filterEndDate.value);
+                filteredTasks = filteredTasks.filter(task => {
+                    const taskDate = task.end_date.split('T')[0]; // Handle both YYYY-MM-DD and full ISO format
+                    return taskDate === filterEndDate.value;
+                });
             }
 
             renderTasks(filteredTasks);
@@ -1049,14 +1087,23 @@
                     );
                 }
                 if (filterStartDate.value) {
-                    tasksToExport = tasksToExport.filter(task => task.start_date === filterStartDate.value);
+                    tasksToExport = tasksToExport.filter(task => {
+                        const taskDate = task.start_date.split('T')[0];
+                        return taskDate === filterStartDate.value;
+                    });
                 }
                 if (filterEndDate.value) {
-                    tasksToExport = tasksToExport.filter(task => task.end_date === filterEndDate.value);
+                    tasksToExport = tasksToExport.filter(task => {
+                        const taskDate = task.end_date.split('T')[0];
+                        return taskDate === filterEndDate.value;
+                    });
+                }
+                if (document.getElementById('filterPlatform')?.value) {
+                    tasksToExport = tasksToExport.filter(task => task.platform === document.getElementById('filterPlatform').value);
                 }
 
                 // Create CSV content
-                const headers = ['ID', 'Task', 'Client', 'Team', 'User', 'Hours', 'Minutes', 'Total Time', 'Start Date', 'End Date', 'Status', 'Created At', 'Updated At'];
+                const headers = ['ID', 'Task', 'Client', 'Platform', 'Team', 'User', 'Hours', 'Minutes', 'Total Time', 'Start Date', 'End Date', 'Status', 'Created At', 'Updated At'];
                 const csvRows = [headers.join(',')];
                 
                 tasksToExport.forEach(task => {
@@ -1067,6 +1114,7 @@
                         task.id,
                         `"${task.task.replace(/"/g, '""')}"`,
                         `"${task.client.replace(/"/g, '""')}"`,
+                        task.platform || 'N/A',
                         task.team,
                         task.user,
                         task.hours,
@@ -1113,6 +1161,7 @@
             const taskData = {
                 task: document.getElementById('task').value,
                 client: document.getElementById('client').value,
+                platform: document.getElementById('platform').value,
                 team: document.getElementById('team').value,
                 user: document.getElementById('user').value,
                 hours: parseInt(document.getElementById('hours').value),
@@ -1180,7 +1229,8 @@
                 <tr data-id="${task.id}">
                     <td>${task.task}</td>
                     <td>${task.client}</td>
-                    <td><span class="badge ${task.team.toLowerCase().replace(' ', '-').replace('oscar-lite', 'oscar')}">${task.team}</span></td>
+                    <td>${task.platform || 'N/A'}</td>
+                    <td><span class="badge ${task.team.toLowerCase().replace(' ', '-')}">${task.team}</span></td>
                     <td>${task.user}</td>
                     <td><span class="time-display">${formatTime(task.hours, task.minutes)}</span></td>
                     <td>${formatDate(task.start_date)}</td>
@@ -1214,6 +1264,7 @@
                 editingId = id;
                 document.getElementById('task').value = task.task;
                 document.getElementById('client').value = task.client;
+                document.getElementById('platform').value = task.platform || '';
                 document.getElementById('team').value = task.team;
                 document.getElementById('user').value = task.user;
                 document.getElementById('hours').value = task.hours;
